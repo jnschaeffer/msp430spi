@@ -9,19 +9,29 @@ import (
 	"time"
 
 	"github.com/jnschaeffer/msp430spi/handlers"
+	"github.com/jnschaeffer/msp430spi/temperature"
 )
 
 func main() {
 	var (
 		port     string
 		interval int
+		device   string
 	)
 	flag.StringVar(&port, "http", ":8080", "port to listen on")
 	flag.IntVar(&interval, "interval", 5, "interval to poll temperatures at in seconds")
+	flag.StringVar(&device, "device", "/dev/spidev/0.1", "SPI device to listen on")
+
 	flag.Parse()
 
-	h := handlers.NewTemperatureHandler(time.Duration(interval) * time.Second)
+	src, errSource := temperature.NewSPISource(device)
+	if errSource != nil {
+		log.Fatal(errSource)
+	}
+
+	h := handlers.NewTemperatureHandler(src, time.Duration(interval)*time.Second)
 	defer h.Close()
+
 	http.Handle("/temperature", h)
 
 	log.Printf("listening on %s at /temperature", port)

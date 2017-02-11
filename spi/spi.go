@@ -3,30 +3,42 @@ package spi
 
 import "golang.org/x/exp/io/spi"
 
-// ReadTemperature reads 2 bytes over SPI from /dev/spidev0.1 and returns
-// the 16-bit temperature in Celsius as a float64.
-func ReadTemperature() (float64, error) {
+type Reader struct {
+	device *spi.Device
+}
+
+// NewReader creates a new SPI reader for the given path.
+func NewReader(path string) (*Reader, error) {
 	dev, errOpen := spi.Open(&spi.Devfs{
 		Dev:      "/dev/spidev0.1",
 		Mode:     spi.Mode3,
 		MaxSpeed: 12000,
 	})
+
 	if errOpen != nil {
-		return 0, errOpen
+		return nil, errOpen
 	}
 
-	defer dev.Close()
+	reader := &Reader{
+		device: dev,
+	}
 
-	tx := make([]byte, 2)
-	rx := make([]byte, 2)
-	errTx := dev.Transfer(tx, rx)
+	return reader, nil
+}
+
+// Close releases all values associated with the Reader.
+func (r *Reader) Close() error {
+	return r.device.Close()
+}
+
+// Read reads values from the SPI device into the given byte slice.
+func (r *Reader) Read(b []byte) (int, error) {
+	tx := make([]byte, len(b))
+
+	errTx := r.device.Tx(tx, b)
 	if errTx != nil {
 		return 0, errTx
 	}
 
-	tempX10 := (int(rx[0]) << 8) + int(rx[1])
-
-	temp := float64(tempX10) / 10
-
-	return temp, nil
+	return len(b), nil
 }
